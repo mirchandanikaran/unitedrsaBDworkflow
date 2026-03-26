@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tender Intelligence POC</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+    <main class="container">
+        <header class="header">
+            <h1>Tender Intelligence & Tracking</h1>
+            <p>Proof of concept dashboard for ingestion, filtering, and quick insights.</p>
+            <p><a href="/how-to" title="Open usage guide for this dashboard">How To Use This Dashboard</a></p>
+        </header>
+
+        <section class="panel actions">
+            <form id="filter-form" class="filters">
+                <input id="country" type="text" placeholder="Country (e.g. India)" title="Filter tenders by country name or code" />
+                <input id="keyword" type="text" placeholder="Keyword (e.g. construction)" title="Filter tenders by words in tender title" />
+                <select id="source" title="Filter tenders by source portal">
+                    <option value="">All Sources</option>
+                </select>
+                <select id="status" title="Filter tenders by normalized status">
+                    <option value="">All Statuses</option>
+                    <option value="open">Open</option>
+                    <option value="closed">Closed</option>
+                    <option value="awarded">Awarded</option>
+                </select>
+                <button type="submit" title="Apply the selected filters">Apply Filters</button>
+                <button id="clear-filters" type="button" class="secondary" title="Reset all filters to default values">Clear</button>
+            </form>
+            <button id="ingest-btn" class="ingest" title="Fetch latest tenders from all sources now">Run Ingestion</button>
+        </section>
+
+        <section class="grid">
+            <article class="panel stat" title="Total records currently loaded in this view">
+                <h2>Total Listed</h2>
+                <p id="total-count">0</p>
+            </article>
+            <article class="panel stat" title="Records currently marked as open in this view">
+                <h2>Open</h2>
+                <p id="open-count">0</p>
+            </article>
+            <article class="panel stat" title="Open tenders that close within the next 7 days">
+                <h2>Closing Soon (7 days)</h2>
+                <p id="closing-soon-count">0</p>
+            </article>
+        </section>
+
+        <section class="panel" title="Count of records per source in the current view">
+            <h2>Source Breakdown</h2>
+            <div id="source-breakdown" class="chips"></div>
+        </section>
+
+        <section class="panel">
+            <h2>Latest Tenders</h2>
+            <p id="status-line" class="status-line">Loading...</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th title="Tender title from source">Title</th>
+                            <th title="Buying agency or organization">Organization</th>
+                            <th title="Country code or country name">Country</th>
+                            <th title="Normalized lifecycle status">Status</th>
+                            <th title="Submission deadline where available">Closing Date</th>
+                            <th title="Source connector name">Source</th>
+                            <th title="Open the original source notice">Link</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tenders-body"></tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <button id="prev-page" type="button" class="secondary" title="Go to previous result page">Previous</button>
+                <span id="page-info" title="Current page number and total pages">Page 1 of 1</span>
+                <button id="next-page" type="button" class="secondary" title="Go to next result page">Next</button>
+            </div>
+        </section>
+    </main>
+    <script src="/static/app.js"></script>
+</body>
+</html>

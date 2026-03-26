@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>How To - Tender Intelligence</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+    <main class="container">
+        <header class="header">
+            <h1>How To Use Tender Intelligence</h1>
+            <p>Quick guide for ingestion, filters, and interpretation of fields.</p>
+            <p><a href="/" title="Go back to dashboard">Back to Dashboard</a></p>
+        </header>
+
+        <section class="panel">
+            <h2>1) Fetch Latest Data</h2>
+            <p>Use <strong>Run Ingestion</strong> on the dashboard to pull new tenders from TED, CPPP, and World Bank.</p>
+        </section>
+
+        <section class="panel">
+            <h2>2) Apply Filters</h2>
+            <p>Use Country, Keyword, Source, and Status filters to narrow records.</p>
+            <p>Click <strong>Apply Filters</strong> to refresh results, or <strong>Clear</strong> to reset.</p>
+        </section>
+
+        <section class="panel">
+            <h2>3) Read Metrics</h2>
+            <ul>
+                <li><strong>Total Listed:</strong> records loaded for current filters.</li>
+                <li><strong>Open:</strong> records currently marked open.</li>
+                <li><strong>Closing Soon:</strong> records with closing date in next 7 days.</li>
+                <li><strong>Source Breakdown:</strong> count by source in current filtered view.</li>
+            </ul>
+        </section>
+
+        <section class="panel">
+            <h2>4) Field Definitions</h2>
+            <ul>
+                <li><strong>Organization:</strong> buyer/agency issuing the tender.</li>
+                <li><strong>Country:</strong> country name/code as provided by source.</li>
+                <li><strong>Status:</strong> normalized as open, closed, or awarded.</li>
+                <li><strong>Closing Date:</strong> bid deadline when source provides it.</li>
+                <li><strong>Source:</strong> ted, cppp, or worldbank.</li>
+                <li><strong>Link:</strong> opens original notice page.</li>
+            </ul>
+        </section>
+    </main>
+</body>
+</html>
