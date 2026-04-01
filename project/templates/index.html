@@ -10,8 +10,12 @@
     <main class="container">
         <header class="header">
             <h1>Tender Intelligence & Tracking</h1>
-            <p>Proof of concept dashboard for ingestion, filtering, and quick insights.</p>
-            <p><a href="/how-to" title="Open usage guide for this dashboard">How To Use This Dashboard</a></p>
+            <p>Unified tender portal for ingestion, screening-ready data, and quick decision support.</p>
+            <p>
+                <a href="/bd" title="Open BD workflow pipeline dashboard">BD Workflow Dashboard</a> |
+                <a href="/keyword-planner" title="Manage custom scoring keywords and lifecycle guide">Keyword Planner</a> |
+                <a href="/how-to" title="Open usage guide for this dashboard">How To</a>
+            </p>
         </header>
 
         <section class="panel actions">
@@ -30,7 +34,7 @@
                 <button type="submit" title="Apply the selected filters">Apply Filters</button>
                 <button id="clear-filters" type="button" class="secondary" title="Reset all filters to default values">Clear</button>
             </form>
-            <button id="ingest-btn" class="ingest" title="Fetch latest tenders from all sources now">Run Ingestion</button>
+            <button id="ingest-btn" class="ingest" title="Fetch latest tenders from all sources now">Ingest All Sources</button>
         </section>
 
         <section class="grid">
@@ -79,6 +83,12 @@
             </div>
         </section>
     </main>
+    <div id="loading-overlay" class="loading-overlay" aria-live="polite" aria-busy="true">
+        <div class="loading-card">
+            <span class="spinner" aria-hidden="true"></span>
+            <span id="loading-text">Refreshing data...</span>
+        </div>
+    </div>
     <script src="/static/app.js"></script>
 </body>
 </html>

@@ -140,6 +140,8 @@ def extract_candidate_notice_links(
         "deutsch",
     }
 
+    unbounded = max_links <= 0
+
     for anchor in soup.find_all("a"):
         href = (anchor.get("href") or "").strip()
         title = anchor.get_text(" ", strip=True)
@@ -168,7 +170,7 @@ def extract_candidate_notice_links(
 
         context = compact_text(anchor.parent.get_text(" ", strip=True) if anchor.parent else "")
         records.append({"title": title, "url": absolute_url, "context": context})
-        if len(records) >= max_links:
+        if not unbounded and len(records) >= max_links:
             break
 
     return records

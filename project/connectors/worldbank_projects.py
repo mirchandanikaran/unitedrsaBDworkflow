@@ -27,9 +27,9 @@ BASE_URL = os.getenv(
 )
 REQUEST_TIMEOUT_SECONDS = int(os.getenv("CONNECTOR_TIMEOUT_SECONDS", "20"))
 RETRY_ATTEMPTS = int(os.getenv("CONNECTOR_RETRY_ATTEMPTS", "3"))
-MAX_PAGES = int(os.getenv("WORLD_BANK_PROJECTS_MAX_PAGES", "20"))
-MAX_LINKS_PER_PAGE = int(os.getenv("WORLD_BANK_PROJECTS_MAX_LINKS_PER_PAGE", "300"))
-DETAIL_FETCH_LIMIT = int(os.getenv("WORLD_BANK_PROJECTS_DETAIL_FETCH_LIMIT", "300"))
+MAX_PAGES = int(os.getenv("WORLD_BANK_PROJECTS_MAX_PAGES", "0"))
+MAX_LINKS_PER_PAGE = int(os.getenv("WORLD_BANK_PROJECTS_MAX_LINKS_PER_PAGE", "0"))
+DETAIL_FETCH_LIMIT = int(os.getenv("WORLD_BANK_PROJECTS_DETAIL_FETCH_LIMIT", "0"))
 PLAYWRIGHT_FALLBACK = os.getenv("PLAYWRIGHT_FALLBACK", "true").lower() == "true"
 
 
@@ -60,7 +60,10 @@ def fetch_world_bank_projects_tenders(max_pages: int = MAX_PAGES) -> list[dict[s
     seen_ids: set[str] = set()
     enriched_count = 0
 
-    for page in range(1, max_pages + 1):
+    page = 1
+    while True:
+        if max_pages > 0 and page > max_pages:
+            break
         html = _request_page(page=page)
         links = extract_candidate_notice_links(
             html,
@@ -81,7 +84,7 @@ def fetch_world_bank_projects_tenders(max_pages: int = MAX_PAGES) -> list[dict[s
             description = compact_text(link.get("context") or link["title"])
             published_date, closing_date = extract_dates_from_text(description)
             country = "Global"
-            if enriched_count < DETAIL_FETCH_LIMIT:
+            if DETAIL_FETCH_LIMIT <= 0 or enriched_count < DETAIL_FETCH_LIMIT:
                 enrich = fetch_detail_enrichment(
                     url=link["url"],
                     use_playwright_fallback=PLAYWRIGHT_FALLBACK,
@@ -115,5 +118,6 @@ def fetch_world_bank_projects_tenders(max_pages: int = MAX_PAGES) -> list[dict[s
 
         if added_this_page == 0:
             break
+        page += 1
 
     return rows

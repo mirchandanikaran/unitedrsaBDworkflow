@@ -33,9 +33,9 @@ ADB_URLS = tuple(
 )
 REQUEST_TIMEOUT_SECONDS = int(os.getenv("CONNECTOR_TIMEOUT_SECONDS", "20"))
 RETRY_ATTEMPTS = int(os.getenv("CONNECTOR_RETRY_ATTEMPTS", "3"))
-MAX_PAGES = int(os.getenv("ADB_MAX_PAGES", "20"))
+MAX_PAGES = int(os.getenv("ADB_MAX_PAGES", "0"))
 PLAYWRIGHT_FALLBACK = os.getenv("PLAYWRIGHT_FALLBACK", "true").lower() == "true"
-DETAIL_FETCH_LIMIT = int(os.getenv("ADB_DETAIL_FETCH_LIMIT", "200"))
+DETAIL_FETCH_LIMIT = int(os.getenv("ADB_DETAIL_FETCH_LIMIT", "0"))
 
 
 def _request_page(base_url: str, page: int) -> str:
@@ -67,13 +67,16 @@ def fetch_adb_tenders(max_pages: int = MAX_PAGES) -> list[dict[str, Any]]:
     enriched_count = 0
 
     for base_url in ADB_URLS:
-        for page in range(0, max_pages):
+        page = 0
+        while True:
+            if max_pages > 0 and page >= max_pages:
+                break
             html = _request_page(base_url=base_url, page=page)
             links = extract_candidate_notice_links(
                 html,
                 base_url=base_url,
                 include_patterns=("procurement", "tender", "bid", "consulting", "goods", "works", "project"),
-                max_links=int(os.getenv("ADB_MAX_LINKS_PER_PAGE", "300")),
+                max_links=int(os.getenv("ADB_MAX_LINKS_PER_PAGE", "0")),
             )
             if not links:
                 break
@@ -88,7 +91,7 @@ def fetch_adb_tenders(max_pages: int = MAX_PAGES) -> list[dict[str, Any]]:
                 description = compact_text(link.get("context") or link["title"])
                 published_date, closing_date = extract_dates_from_text(description)
                 country = "Global"
-                if enriched_count < DETAIL_FETCH_LIMIT:
+                if DETAIL_FETCH_LIMIT <= 0 or enriched_count < DETAIL_FETCH_LIMIT:
                     enrich = fetch_detail_enrichment(
                         url=link["url"],
                         use_playwright_fallback=PLAYWRIGHT_FALLBACK,
@@ -121,5 +124,6 @@ def fetch_adb_tenders(max_pages: int = MAX_PAGES) -> list[dict[str, Any]]:
                 )
             if added_this_page == 0:
                 break
+            page += 1
 
     return rows

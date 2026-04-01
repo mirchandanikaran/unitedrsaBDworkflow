@@ -19,7 +19,7 @@ TED_API_URL = os.getenv("TED_API_URL", "https://api.ted.europa.eu/v3/notices/sea
 REQUEST_TIMEOUT_SECONDS = int(os.getenv("CONNECTOR_TIMEOUT_SECONDS", "20"))
 RETRY_ATTEMPTS = int(os.getenv("CONNECTOR_RETRY_ATTEMPTS", "3"))
 TED_PAGE_SIZE = int(os.getenv("TED_PAGE_SIZE", "250"))
-TED_MAX_PAGES = int(os.getenv("TED_MAX_PAGES", "60"))
+TED_MAX_PAGES = int(os.getenv("TED_MAX_PAGES", "0"))
 
 
 def _build_query() -> str:
@@ -179,7 +179,10 @@ def fetch_ted_tenders(max_pages: int = TED_MAX_PAGES, page_size: int = TED_PAGE_
     normalized_rows: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
 
-    for page in range(1, max_pages + 1):
+    page = 1
+    while True:
+        if max_pages > 0 and page > max_pages:
+            break
         try:
             payload = _request_page(page=page, page_size=page_size)
         except RuntimeError as exc:
@@ -205,5 +208,6 @@ def fetch_ted_tenders(max_pages: int = TED_MAX_PAGES, page_size: int = TED_PAGE_
 
         if len(page_items) < page_size:
             break
+        page += 1
 
     return normalized_rows

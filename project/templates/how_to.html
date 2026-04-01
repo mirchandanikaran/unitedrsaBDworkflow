@@ -9,41 +9,123 @@
 <body>
     <main class="container">
         <header class="header">
-            <h1>How To Use Tender Intelligence</h1>
-            <p>Quick guide for ingestion, filters, and interpretation of fields.</p>
-            <p><a href="/" title="Go back to dashboard">Back to Dashboard</a></p>
+            <h1>Tender Intelligence User Guide</h1>
+            <p>Complete guide for daily operations, scoring logic, and BD workflow usage.</p>
+            <p>
+                <a href="/" title="Go back to tender dashboard">Tender Dashboard</a>
+                |
+                <a href="/bd" title="Open BD workflow dashboard">BD Workflow Dashboard</a>
+                |
+                <a href="/keyword-planner" title="Manage custom scoring keywords">Keyword Planner</a>
+            </p>
         </header>
 
         <section class="panel">
-            <h2>1) Fetch Latest Data</h2>
-            <p>Use <strong>Run Ingestion</strong> on the dashboard to pull new tenders from TED, CPPP, and World Bank.</p>
-        </section>
-
-        <section class="panel">
-            <h2>2) Apply Filters</h2>
-            <p>Use Country, Keyword, Source, and Status filters to narrow records.</p>
-            <p>Click <strong>Apply Filters</strong> to refresh results, or <strong>Clear</strong> to reset.</p>
-        </section>
-
-        <section class="panel">
-            <h2>3) Read Metrics</h2>
+            <h2>1) What This App Does</h2>
             <ul>
-                <li><strong>Total Listed:</strong> records loaded for current filters.</li>
-                <li><strong>Open:</strong> records currently marked open.</li>
-                <li><strong>Closing Soon:</strong> records with closing date in next 7 days.</li>
-                <li><strong>Source Breakdown:</strong> count by source in current filtered view.</li>
+                <li><strong>Collects tenders:</strong> pulls opportunities from configured international and national portals.</li>
+                <li><strong>Normalizes and deduplicates:</strong> stores unified records in one database.</li>
+                <li><strong>Auto-screens opportunities:</strong> generates score, decision (Go/Consortium/No-Go), lead assignment, and priority.</li>
+                <li><strong>Tracks full BD lifecycle:</strong> from identification to handover using stages and checklists.</li>
             </ul>
         </section>
 
         <section class="panel">
-            <h2>4) Field Definitions</h2>
+            <h2>2) Daily Workflow (Recommended)</h2>
+            <ol>
+                <li>Open either dashboard and click <strong>Ingest All Sources</strong> once.</li>
+                <li>Open <strong>BD Workflow Dashboard</strong> and click <strong>Run Screening</strong>.</li>
+                <li>Review <strong>Projects by Source</strong>, <strong>Overdue</strong>, and pipeline KPIs.</li>
+                <li>Filter by stage/decision and open each item using <strong>Detail</strong>.</li>
+                <li>Advance stage, complete checklist items, and update partners/proposals/reviews.</li>
+            </ol>
+        </section>
+
+        <section class="panel">
+            <h2>2.1) Keyword Planner</h2>
             <ul>
-                <li><strong>Organization:</strong> buyer/agency issuing the tender.</li>
-                <li><strong>Country:</strong> country name/code as provided by source.</li>
-                <li><strong>Status:</strong> normalized as open, closed, or awarded.</li>
-                <li><strong>Closing Date:</strong> bid deadline when source provides it.</li>
-                <li><strong>Source:</strong> ted, cppp, or worldbank.</li>
-                <li><strong>Link:</strong> opens original notice page.</li>
+                <li>Use <strong>Keyword Planner</strong> to add domain-specific custom keywords.</li>
+                <li>Set keyword <strong>weight</strong> (1-20) to control scoring impact.</li>
+                <li>Enable/disable keywords without deleting them for temporary campaigns.</li>
+                <li>Run screening after changes to apply updated scoring to the pipeline.</li>
+            </ul>
+        </section>
+
+        <section class="panel">
+            <h2>3) Scoring Logic (Exact)</h2>
+            <p>Each open tender gets a score from <strong>0 to 100</strong>:</p>
+            <ul>
+                <li><strong>Keyword relevance:</strong> +35 base if matched, plus +4 per keyword (capped at +35 extra).</li>
+                <li><strong>Focus geography match:</strong> +15.</li>
+                <li><strong>Organization available:</strong> +5.</li>
+                <li><strong>Budget available:</strong> +5.</li>
+                <li><strong>Urgency:</strong> closing in 3 days +10, closing in 7 days +5.</li>
+            </ul>
+            <p><strong>Decision thresholds:</strong></p>
+            <ul>
+                <li><strong>Go:</strong> score &gt;= 70</li>
+                <li><strong>Consortium:</strong> score 40-69</li>
+                <li><strong>No-Go:</strong> score &lt; 40</li>
+            </ul>
+            <p><strong>Priority:</strong> urgent (<=3 days), high (<=7 days), normal (more than 7 days or no closing date).</p>
+        </section>
+
+        <section class="panel">
+            <h2>4) BD Pipeline Stages</h2>
+            <p>The app supports these stages in order:</p>
+            <p>
+                <code>identified</code> - <code>screened</code> - <code>partner_development</code> - <code>eoi_preparation</code> -
+                <code>technical_proposal</code> - <code>financial_proposal</code> - <code>quality_control</code> -
+                <code>submitted</code> - <code>post_submission</code> - <code>negotiation</code> - <code>awarded</code> -
+                <code>handover</code> - <code>closed</code>
+            </p>
+            <p>When you advance a stage, stage-specific checklist items are generated automatically.</p>
+        </section>
+
+        <section class="panel">
+            <h2>5) SLA Timeline Rules</h2>
+            <ul>
+                <li><strong>identified:</strong> 1 day</li>
+                <li><strong>screened:</strong> 2 days</li>
+                <li><strong>partner_development:</strong> 6 days</li>
+                <li><strong>eoi_preparation:</strong> 10 days</li>
+                <li><strong>technical_proposal:</strong> 28 days</li>
+                <li><strong>financial_proposal:</strong> 28 days</li>
+                <li><strong>quality_control:</strong> 3 days</li>
+            </ul>
+            <p>Overdue items are highlighted on the BD dashboard.</p>
+        </section>
+
+        <section class="panel">
+            <h2>6) How To Use Detail View</h2>
+            <ul>
+                <li>Click <strong>Detail</strong> on any pipeline row.</li>
+                <li>Review stage, decision, score, lead, source URL, and rationale.</li>
+                <li>Use <strong>Advance</strong> to move stage.</li>
+                <li>Complete checklist tasks via checkboxes.</li>
+                <li>Track proposals, reviews, partners, and team assignments in one place.</li>
+            </ul>
+        </section>
+
+        <section class="panel">
+            <h2>7) Dashboard Metrics Explained</h2>
+            <ul>
+                <li><strong>Tracked:</strong> total opportunities in workflow table.</li>
+                <li><strong>EOI+:</strong> opportunities in EOI/proposal onward stages.</li>
+                <li><strong>Submitted:</strong> opportunities in submitted/post-submission/negotiation/awarded/handover.</li>
+                <li><strong>Won:</strong> opportunities in awarded/handover.</li>
+                <li><strong>Win Rate:</strong> won / submitted percentage.</li>
+                <li><strong>Projects by Source:</strong> source-wise tender counts in database.</li>
+            </ul>
+        </section>
+
+        <section class="panel">
+            <h2>8) Quick Troubleshooting</h2>
+            <ul>
+                <li>If source counts are low, run <strong>Ingestion</strong> and wait for completion.</li>
+                <li>If no workflow rows are shown, run <strong>Run Screening</strong>.</li>
+                <li>If checklists/reviews are empty, advance to a stage that generates them (e.g. <code>quality_control</code>).</li>
+                <li>If pages appear stale, refresh browser once after long ingestion runs.</li>
             </ul>
         </section>
     </main>

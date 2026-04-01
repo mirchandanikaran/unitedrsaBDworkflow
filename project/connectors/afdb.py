@@ -56,7 +56,7 @@ def fetch_afdb_tenders() -> list[dict[str, Any]]:
         html,
         base_url=BASE_URL,
         include_patterns=("solicitation", "procurement", "tender", "bid", "notice"),
-        max_links=int(os.getenv("AFDB_MAX_LINKS", "500")),
+        max_links=int(os.getenv("AFDB_MAX_LINKS", "0")),
     )
 
     rows: list[dict[str, Any]] = []

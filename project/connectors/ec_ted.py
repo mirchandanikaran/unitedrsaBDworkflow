@@ -41,7 +41,7 @@ def fetch_ec_ted_tenders() -> list[dict[str, Any]]:
         html,
         base_url=BASE_URL,
         include_patterns=("notice", "tender", "procurement", "browse", "performance"),
-        max_links=int(os.getenv("EC_TED_MAX_LINKS", "500")),
+        max_links=int(os.getenv("EC_TED_MAX_LINKS", "0")),
     )
 
     rows: list[dict[str, Any]] = []

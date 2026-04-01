@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Keyword Planner - Tender Intelligence</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <style>
+        .nav-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+        .nav-row a{background:#eef2ff;color:#3730a3;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;text-decoration:none}
+        .split{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
+        .planner-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+        .planner-kpis .mini{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px}
+        .planner-kpis .mini .label{font-size:11px;color:#64748b;text-transform:uppercase}
+        .planner-kpis .mini .value{font-size:24px;font-weight:700;margin-top:4px}
+        .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+        .toolbar input{min-width:180px}
+        .kw-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+        .kw-table th,.kw-table td{padding:8px;border-bottom:1px solid #e5e7eb;text-align:left}
+        .kw-table th{background:#f8fafc;font-size:11px;text-transform:uppercase;color:#64748b}
+        .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+        .on{background:#dcfce7;color:#166534}
+        .off{background:#fee2e2;color:#991b1b}
+        .lifecycle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+        .stage-card{border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:10px}
+        .stage-card .n{font-size:11px;color:#64748b}
+        .stage-card h4{margin:4px 0 6px;font-size:14px}
+        .stage-card p{margin:0;color:#475569;font-size:12px}
+    </style>
+</head>
+<body>
+<main class="container">
+    <header class="header">
+        <h1>Keyword Planner</h1>
+        <p>Manage custom scoring keywords and understand each project lifecycle stage.</p>
+        <div class="nav-row">
+            <a href="/">Tender Dashboard</a>
+            <a href="/bd">BD Workflow Dashboard</a>
+            <a href="/how-to">How To Guide</a>
+        </div>
+    </header>
+
+    <section class="panel">
+        <h2 style="margin-top:0">Scoring Controls</h2>
+        <div class="planner-kpis" id="planner-kpis"></div>
+        <div class="toolbar" style="margin-top:10px">
+            <input id="kw-text" type="text" placeholder="Keyword (e.g. digital transformation)" />
+            <input id="kw-weight" type="number" min="1" max="20" value="4" />
+            <input id="kw-notes" type="text" placeholder="Optional notes/team context" />
+            <button id="kw-add-btn">Add / Update Keyword</button>
+            <button id="kw-refresh-btn" class="secondary">Refresh</button>
+            <button id="kw-screen-btn" class="ingest">Run Screening Now</button>
+        </div>
+        <p id="kw-status" class="status-line">Loading keyword catalog...</p>
+        <div class="table-wrap">
+            <table class="kw-table">
+                <thead>
+                    <tr><th>Keyword</th><th>Weight</th><th>Active</th><th>Notes</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="custom-kw-body"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2 style="margin-top:0">Project Lifecycle In This Tool</h2>
+        <p style="margin-top:0;color:#475569;font-size:13px">Every opportunity follows this path. The current stage decides checklist generation, ownership, and SLA tracking.</p>
+        <div id="lifecycle-grid" class="lifecycle-grid"></div>
+    </section>
+</main>
+<div id="loading-overlay" class="loading-overlay" aria-live="polite" aria-busy="true">
+    <div class="loading-card">
+        <span class="spinner" aria-hidden="true"></span>
+        <span id="loading-text">Refreshing planner...</span>
+    </div>
+</div>
+
+<script>
+const ids = {
+    kpi: document.getElementById("planner-kpis"),
+    text: document.getElementById("kw-text"),
+    weight: document.getElementById("kw-weight"),
+    notes: document.getElementById("kw-notes"),
+    status: document.getElementById("kw-status"),
+    body: document.getElementById("custom-kw-body"),
+    addBtn: document.getElementById("kw-add-btn"),
+    refreshBtn: document.getElementById("kw-refresh-btn"),
+    screenBtn: document.getElementById("kw-screen-btn"),
+    lifecycle: document.getElementById("lifecycle-grid"),
+    loadingOverlay: document.getElementById("loading-overlay"),
+    loadingText: document.getElementById("loading-text"),
+};
+let loadingCount = 0;
+function setLoading(isLoading, text = "Refreshing planner...") {
+    if (!ids.loadingOverlay) return;
+    if (isLoading) {
+        loadingCount += 1;
+        ids.loadingOverlay.classList.add("show");
+        if (ids.loadingText) ids.loadingText.textContent = text;
+        return;
+    }
+    loadingCount = Math.max(0, loadingCount - 1);
+    if (loadingCount === 0) ids.loadingOverlay.classList.remove("show");
+}
+
+function esc(s) {
+    const el = document.createElement("span");
+    el.textContent = s || "";
+    return el.innerHTML;
+}
+
+async function loadKeywords() {
+    setLoading(true, "Loading keywords...");
+    const res = await fetch("/workflow/keywords");
+    try {
+        if (!res.ok) throw new Error("Failed to load keywords.");
+        const data = await res.json();
+        ids.kpi.innerHTML = [
+            {label: "Default Keywords", value: data.defaults_count || 0},
+            {label: "Custom Keywords", value: data.custom_count || 0},
+            {label: "Active Custom", value: data.active_custom_count || 0},
+            {label: "Effective Total", value: data.effective_keywords_count || 0},
+        ].map(k => `<div class="mini"><div class="label">${k.label}</div><div class="value">${k.value}</div></div>`).join("");
+
+        const rows = data.custom_keywords || [];
+        if (!rows.length) {
+            ids.body.innerHTML = '<tr><td colspan="5">No custom keywords yet. Add your first one above.</td></tr>';
+            return;
+        }
+        ids.body.innerHTML = rows.map(row => `<tr>
+            <td>${esc(row.keyword)}</td>
+            <td>${row.weight}</td>
+            <td><span class="badge ${row.is_active ? "on" : "off"}">${row.is_active ? "Active" : "Inactive"}</span></td>
+            <td>${esc(row.notes || "-")}</td>
+            <td>
+                <button class="secondary" data-act="toggle" data-id="${row.id}" data-active="${row.is_active ? 1 : 0}">
+                    ${row.is_active ? "Disable" : "Enable"}
+                </button>
+                <button data-act="delete" data-id="${row.id}" style="background:#b91c1c">Delete</button>
+            </td>
+        </tr>`).join("");
+
+        ids.body.querySelectorAll("button[data-act=toggle]").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const id = btn.dataset.id;
+                const nextActive = btn.dataset.active === "1" ? "false" : "true";
+                await fetch(`/workflow/keywords/${id}?is_active=${nextActive}`, { method: "PATCH" });
+                await refreshAll("Keyword status updated.");
+            });
+        });
+        ids.body.querySelectorAll("button[data-act=delete]").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const id = btn.dataset.id;
+                await fetch(`/workflow/keywords/${id}`, { method: "DELETE" });
+                await refreshAll("Keyword deleted.");
+            });
+        });
+    } finally {
+        setLoading(false);
+    }
+}
+
+async function loadLifecycle() {
+    setLoading(true, "Loading lifecycle...");
+    const res = await fetch("/workflow/lifecycle");
+    try {
+        if (!res.ok) throw new Error("Failed to load lifecycle.");
+        const data = await res.json();
+        const rows = data.stages || [];
+        ids.lifecycle.innerHTML = rows.map(s => `
+            <article class="stage-card">
+                <div class="n">Stage ${s.order}${s.sla_days ? ` | SLA ${s.sla_days}d` : ""}</div>
+                <h4>${esc(s.label)}</h4>
+                <p>${esc(s.description || "")}</p>
+            </article>
+        `).join("");
+    } finally {
+        setLoading(false);
+    }
+}
+
+async function addKeyword() {
+    const keyword = ids.text.value.trim();
+    const weight = Number(ids.weight.value || 4);
+    const notes = ids.notes.value.trim();
+    if (!keyword) {
+        ids.status.textContent = "Enter a keyword first.";
+        return;
+    }
+    const q = new URLSearchParams({ keyword, weight: String(weight), notes });
+    const res = await fetch(`/workflow/keywords?${q.toString()}`, { method: "POST" });
+    if (!res.ok) {
+        ids.status.textContent = "Could not save keyword.";
+        return;
+    }
+    ids.text.value = "";
+    ids.notes.value = "";
+    await refreshAll(`Saved keyword "${keyword}".`);
+}
+
+async function runScreening() {
+    setLoading(true, "Running screening...");
+    ids.screenBtn.disabled = true;
+    ids.screenBtn.textContent = "Running...";
+    try {
+        await fetch("/workflow/run?limit=1000&force=true", { method: "POST" });
+        ids.status.textContent = "Screening completed with latest keyword settings.";
+    } finally {
+        ids.screenBtn.disabled = false;
+        ids.screenBtn.textContent = "Run Screening Now";
+        setLoading(false);
+    }
+}
+
+async function refreshAll(msg) {
+    try {
+        await Promise.all([loadKeywords(), loadLifecycle()]);
+        ids.status.textContent = msg || "Loaded successfully.";
+    } catch (err) {
+        ids.status.textContent = String(err);
+    }
+}
+
+ids.addBtn.addEventListener("click", addKeyword);
+ids.refreshBtn.addEventListener("click", () => refreshAll("Refreshed."));
+ids.screenBtn.addEventListener("click", runScreening);
+refreshAll();
+</script>
+</body>
+</html>

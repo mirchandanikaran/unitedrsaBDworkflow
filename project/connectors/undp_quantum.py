@@ -26,8 +26,8 @@ BASE_URL = os.getenv("UNDP_QUANTUM_URL", "https://procurement-notices.undp.org/"
 REQUEST_TIMEOUT_SECONDS = int(os.getenv("CONNECTOR_TIMEOUT_SECONDS", "20"))
 RETRY_ATTEMPTS = int(os.getenv("CONNECTOR_RETRY_ATTEMPTS", "3"))
 PLAYWRIGHT_FALLBACK = os.getenv("PLAYWRIGHT_FALLBACK", "true").lower() == "true"
-MAX_LINKS = int(os.getenv("UNDP_QUANTUM_MAX_LINKS", "1200"))
-DETAIL_FETCH_LIMIT = int(os.getenv("UNDP_QUANTUM_DETAIL_FETCH_LIMIT", "300"))
+MAX_LINKS = int(os.getenv("UNDP_QUANTUM_MAX_LINKS", "0"))
+DETAIL_FETCH_LIMIT = int(os.getenv("UNDP_QUANTUM_DETAIL_FETCH_LIMIT", "0"))
 
 
 def _request_page() -> str:
@@ -68,7 +68,7 @@ def fetch_undp_quantum_tenders() -> list[dict[str, Any]]:
         description = compact_text(link.get("context") or link["title"])
         published_date, closing_date = extract_dates_from_text(description)
         country = "Global"
-        if enriched_count < DETAIL_FETCH_LIMIT:
+        if DETAIL_FETCH_LIMIT <= 0 or enriched_count < DETAIL_FETCH_LIMIT:
             enrich = fetch_detail_enrichment(
                 url=url,
                 use_playwright_fallback=PLAYWRIGHT_FALLBACK,

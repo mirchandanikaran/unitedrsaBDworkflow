@@ -25,8 +25,8 @@ CPPP_ORG_LIST_URL = os.getenv(
 )
 REQUEST_TIMEOUT_SECONDS = int(os.getenv("CONNECTOR_TIMEOUT_SECONDS", "20"))
 RETRY_ATTEMPTS = int(os.getenv("CONNECTOR_RETRY_ATTEMPTS", "3"))
-CPPP_MAX_ORG_LINKS = int(os.getenv("CPPP_MAX_ORG_LINKS", "250"))
-CPPP_MAX_RESULTS = int(os.getenv("CPPP_MAX_RESULTS", "2000"))
+CPPP_MAX_ORG_LINKS = int(os.getenv("CPPP_MAX_ORG_LINKS", "0"))
+CPPP_MAX_RESULTS = int(os.getenv("CPPP_MAX_RESULTS", "0"))
 
 
 def _absolute_url(path_or_url: str) -> str:
@@ -203,7 +203,7 @@ def _extract_tenders_from_html(html: str) -> list[dict[str, Any]]:
     return normalized
 
 
-def fetch_cppp_tenders(max_pages: int = 5) -> list[dict[str, Any]]:
+def fetch_cppp_tenders(max_pages: int = 0) -> list[dict[str, Any]]:
     """
     Fetch tenders from CPPP and return normalized JSON records only.
 
@@ -223,8 +223,13 @@ def fetch_cppp_tenders(max_pages: int = 5) -> list[dict[str, Any]]:
         logger.warning("CPPP organization links not found", extra={"source": CPPP_SOURCE})
         return []
 
-    max_links_to_scan = min(len(org_links), max_pages * CPPP_MAX_ORG_LINKS)
-    for idx, org_link in enumerate(org_links[:max_links_to_scan], start=1):
+    org_links_to_scan = list(org_links)
+    if max_pages > 0:
+        org_links_to_scan = org_links_to_scan[: max_pages * (CPPP_MAX_ORG_LINKS if CPPP_MAX_ORG_LINKS > 0 else len(org_links_to_scan))]
+    if CPPP_MAX_ORG_LINKS > 0:
+        org_links_to_scan = org_links_to_scan[:CPPP_MAX_ORG_LINKS]
+
+    for idx, org_link in enumerate(org_links_to_scan, start=1):
         try:
             org_html = _request_page(url=org_link, session=session)
         except RuntimeError as exc:
@@ -237,7 +242,9 @@ def fetch_cppp_tenders(max_pages: int = 5) -> list[dict[str, Any]]:
         org_rows = _extract_tenders_from_html(org_html)
         if org_rows:
             all_rows.extend(org_rows)
-        if len(all_rows) >= CPPP_MAX_RESULTS:
+        if CPPP_MAX_RESULTS > 0 and len(all_rows) >= CPPP_MAX_RESULTS:
             break
 
-    return all_rows[:CPPP_MAX_RESULTS]
+    if CPPP_MAX_RESULTS > 0:
+        return all_rows[:CPPP_MAX_RESULTS]
+    return all_rows

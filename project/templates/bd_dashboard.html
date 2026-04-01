@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BD Workflow Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <style>
+        .bd-nav{display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+        .bd-nav a{padding:6px 14px;border-radius:6px;background:#e0e7ff;color:#3730a3;font-size:13px;font-weight:600;text-decoration:none}
+        .bd-nav a:hover{background:#c7d2fe}
+        .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+        .kpi{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px;text-align:center}
+        .kpi h3{margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px}
+        .kpi .val{font-size:28px;font-weight:700;margin-top:4px}
+        .funnel-bar{display:flex;gap:2px;margin-top:12px;height:28px;border-radius:6px;overflow:hidden}
+        .funnel-bar div{display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;min-width:30px;transition:flex .3s}
+        .stage-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+        .stage-pill{padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #d1d5db;background:#f9fafb;color:#374151}
+        .stage-pill.active{background:#2563eb;color:#fff;border-color:#2563eb}
+        .wf-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+        .wf-table th,.wf-table td{text-align:left;padding:8px 6px;border-bottom:1px solid #e5e7eb;vertical-align:top}
+        .wf-table th{background:#f9fafb;font-size:11px;text-transform:uppercase;color:#6b7280}
+        .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
+        .badge-go{background:#dcfce7;color:#166534}.badge-consortium{background:#fef9c3;color:#854d0e}.badge-no-go{background:#fee2e2;color:#991b1b}
+        .badge-urgent{background:#fecaca;color:#b91c1c}.badge-high{background:#fed7aa;color:#c2410c}.badge-normal{background:#e0e7ff;color:#3730a3}
+        .overdue-banner{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;color:#991b1b;font-weight:600;margin-top:12px}
+        .btn-sm{padding:6px 12px;font-size:12px;border-radius:6px;border:none;cursor:pointer;background:#2563eb;color:#fff;font-weight:600}
+        .btn-sm.green{background:#047857}.btn-sm.gray{background:#475569}
+        .detail-section{margin-top:16px;padding:16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px}
+        .detail-section h3{margin:0 0 8px;font-size:14px}
+        .checklist-item{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px}
+        .checklist-item input[type=checkbox]{width:16px;height:16px}
+        .hidden{display:none}
+        .source-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-top:10px}
+        .source-card{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px}
+        .source-card .src-name{font-size:13px;font-weight:600;color:#1f2937;text-transform:capitalize}
+        .source-card .src-count{font-size:20px;font-weight:700;color:#2563eb}
+        .portal-tip{margin-top:8px;font-size:12px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px}
+        .life-row{display:flex;gap:8px;flex-wrap:wrap}
+        .life-chip{padding:4px 10px;border-radius:999px;font-size:11px;border:1px solid #d1d5db;background:#fff;color:#475569}
+        .life-chip.current{background:#dbeafe;border-color:#93c5fd;color:#1e40af;font-weight:700}
+        .life-chip.completed{background:#dcfce7;border-color:#86efac;color:#166534}
+        .loading-overlay{position:fixed;inset:0;background:rgba(248,250,252,.75);display:none;align-items:center;justify-content:center;z-index:9999}
+        .loading-overlay.show{display:flex}
+        .loading-card{min-width:240px;background:#fff;border:1px solid #dbe3ef;border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 20px rgba(15,23,42,.08)}
+        .spinner{width:18px;height:18px;border:3px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;animation:spin .8s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+    </style>
+</head>
+<body>
+<main class="container">
+    <header class="header">
+        <h1>BD Workflow Dashboard</h1>
+        <p>End-to-end pipeline from opportunity identification through contract handover.</p>
+        <div class="bd-nav">
+            <a href="/">Tender Dashboard</a>
+            <a href="/keyword-planner">Keyword Planner</a>
+            <a href="/how-to">How To</a>
+            <a href="/docs" target="_blank">API Docs</a>
+        </div>
+    </header>
+
+    <section class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <h2 style="margin:0">Pipeline Overview</h2>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button id="ingest-all-btn" class="btn-sm">Ingest All Sources</button>
+                <button id="run-screening-btn" class="btn-sm green">Run Screening</button>
+            </div>
+        </div>
+        <p class="portal-tip">One-click operations: <strong>Ingest All Sources</strong> updates both dashboards and auto-runs screening; use <strong>Run Screening</strong> when only scoring rules changed.</p>
+        <div id="kpi-area" class="kpi-grid"></div>
+        <div id="funnel-area"></div>
+        <div id="overdue-area"></div>
+    </section>
+
+    <section class="panel">
+        <h2>Projects by Source</h2>
+        <p style="font-size:12px;color:#6b7280;margin:2px 0 0">Total tenders currently in the database, grouped by source portal.</p>
+        <div id="source-grid" class="source-grid"></div>
+    </section>
+
+    <section class="panel">
+        <h2>Pipeline Items</h2>
+        <div class="stage-pills" id="stage-pills"></div>
+        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+            <select id="filter-decision" style="font-size:12px"><option value="">All Decisions</option><option value="go">Go</option><option value="consortium">Consortium</option><option value="no-go">No-Go</option></select>
+            <select id="filter-priority" style="font-size:12px"><option value="">All Priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option></select>
+        </div>
+        <div class="table-wrap">
+            <table class="wf-table">
+                <thead><tr>
+                    <th>Title</th><th>Source</th><th>Country</th><th>Decision</th><th>Score</th><th>Priority</th><th>Stage</th><th>Lead</th><th>Closing</th><th>Actions</th>
+                </tr></thead>
+                <tbody id="wf-body"></tbody>
+            </table>
+        </div>
+        <div class="pagination" style="margin-top:8px">
+            <button id="wf-prev" class="btn-sm gray">Prev</button>
+            <span id="wf-page-info" style="font-size:12px">Page 1</span>
+            <button id="wf-next" class="btn-sm gray">Next</button>
+        </div>
+    </section>
+
+    <section class="panel hidden" id="detail-panel">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+            <h2 id="detail-title" style="margin:0"></h2>
+            <button class="btn-sm gray" onclick="closeDetail()">Close</button>
+        </div>
+        <p id="detail-meta" style="font-size:12px;color:#6b7280;margin:4px 0 0"></p>
+        <p id="detail-url" style="font-size:12px;margin:4px 0 0"></p>
+
+        <div class="detail-section">
+            <h3>Stage Advancement</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <select id="advance-stage" style="font-size:12px"></select>
+                <button class="btn-sm green" id="advance-btn">Advance</button>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h3>Lifecycle Navigator</h3>
+            <p id="lifecycle-current" style="font-size:12px;color:#6b7280;margin:0 0 8px"></p>
+            <div id="lifecycle-area" class="life-row"></div>
+        </div>
+
+        <div class="detail-section">
+            <h3>Checklists</h3>
+            <div id="checklist-area"></div>
+        </div>
+
+        <div class="detail-section">
+            <h3>Proposals</h3>
+            <div id="proposals-area"></div>
+        </div>
+
+        <div class="detail-section">
+            <h3>Quality Reviews</h3>
+            <div id="reviews-area"></div>
+        </div>
+
+        <div class="detail-section">
+            <h3>Consortium Partners</h3>
+            <div id="partners-area"></div>
+        </div>
+
+        <div class="detail-section">
+            <h3>Team</h3>
+            <div id="team-area"></div>
+        </div>
+    </section>
+</main>
+<div id="loading-overlay" class="loading-overlay" aria-live="polite" aria-busy="true">
+    <div class="loading-card">
+        <span class="spinner" aria-hidden="true"></span>
+        <span id="loading-text">Refreshing workflow...</span>
+    </div>
+</div>
+
+<script>
+const bdState = {
+    stage: "", decision: "", priority: "",
+    page: 1, pageSize: 30,
+    selectedTender: null,
+    cachedItems: [],
+};
+
+const $ = id => document.getElementById(id);
+let loadingCount = 0;
+function setLoading(isLoading, text = "Refreshing workflow...") {
+    const overlay = $("loading-overlay");
+    const textEl = $("loading-text");
+    if (!overlay) return;
+    if (isLoading) {
+        loadingCount += 1;
+        overlay.classList.add("show");
+        if (textEl) textEl.textContent = text;
+        return;
+    }
+    loadingCount = Math.max(0, loadingCount - 1);
+    if (loadingCount === 0) overlay.classList.remove("show");
+}
+
+function decisionBadge(d) {
+    const cls = d === "go" ? "badge-go" : d === "consortium" ? "badge-consortium" : "badge-no-go";
+    return `<span class="badge ${cls}">${d}</span>`;
+}
+function priorityBadge(p) {
+    const cls = p === "urgent" ? "badge-urgent" : p === "high" ? "badge-high" : "badge-normal";
+    return `<span class="badge ${cls}">${p}</span>`;
+}
+function fmtDate(v) {
+    if (!v) return "-";
+    const d = new Date(v);
+    return isNaN(d) ? v : d.toLocaleDateString();
+}
+function esc(s) {
+    const el = document.createElement("span");
+    el.textContent = s;
+    return el.innerHTML;
+}
+
+/* ---- Source-wise project counts ---- */
+async function loadSourceCounts() {
+    setLoading(true, "Refreshing source coverage...");
+    const res = await fetch("/sources");
+    try {
+        if (!res.ok) return;
+        const rows = await res.json();
+        const grid = $("source-grid");
+        if (!rows.length) {
+            grid.innerHTML = '<p style="font-size:12px;color:#6b7280">No source data yet. Run ingestion first.</p>';
+            return;
+        }
+        rows.sort((a, b) => b.count - a.count);
+        const total = rows.reduce((s, r) => s + r.count, 0);
+        grid.innerHTML =
+            `<div class="source-card" style="border-color:#2563eb"><span class="src-name">All Sources</span><span class="src-count">${total}</span></div>` +
+            rows.map(r =>
+                `<div class="source-card"><span class="src-name">${esc(r.source)}</span><span class="src-count">${r.count}</span></div>`
+            ).join("");
+    } finally {
+        setLoading(false);
+    }
+}
+
+/* ---- Pipeline summary / KPIs ---- */
+async function loadSummary() {
+    setLoading(true, "Refreshing pipeline summary...");
+    const res = await fetch("/workflow/summary");
+    try {
+        const data = await res.json();
+        const f = data.funnel || {};
+
+    $("kpi-area").innerHTML = [
+        { label: "Tracked", val: f.tracked || 0 },
+        { label: "EOI+", val: f.eoi_submitted || 0 },
+        { label: "Submitted", val: f.proposals_submitted || 0 },
+        { label: "Won", val: f.won || 0 },
+        { label: "Win Rate", val: (f.win_rate_pct || 0) + "%" },
+        { label: "Overdue", val: data.overdue_items || 0 },
+    ].map(k => `<div class="kpi"><h3>${k.label}</h3><div class="val">${k.val}</div></div>`).join("");
+
+    const stages = data.known_stages || [];
+    const pills = $("stage-pills");
+    pills.innerHTML = `<span class="stage-pill ${bdState.stage === '' ? 'active' : ''}" data-stage="">All</span>` +
+        stages.map(s => {
+            const cnt = (data.by_stage || []).find(x => x.stage === s);
+            const c = cnt ? cnt.count : 0;
+            return `<span class="stage-pill ${bdState.stage === s ? 'active' : ''}" data-stage="${s}">${s.replace(/_/g, ' ')} (${c})</span>`;
+        }).join("");
+
+    pills.querySelectorAll(".stage-pill").forEach(el => {
+        el.addEventListener("click", () => {
+            bdState.stage = el.dataset.stage;
+            bdState.page = 1;
+            loadItems();
+            loadSummary();
+        });
+    });
+
+    $("advance-stage").innerHTML = stages.map(s => `<option value="${s}">${s.replace(/_/g, ' ')}</option>`).join("");
+
+    const colors = ["#6366f1", "#8b5cf6", "#a855f7", "#d946ef"];
+    const funnelParts = [
+        { label: "Tracked", val: f.tracked || 0 },
+        { label: "EOI+", val: f.eoi_submitted || 0 },
+        { label: "Submitted", val: f.proposals_submitted || 0 },
+        { label: "Won", val: f.won || 0 },
+    ];
+    $("funnel-area").innerHTML = `<div class="funnel-bar">${funnelParts.map((p, i) =>
+        `<div style="flex:${Math.max(p.val, 1)};background:${colors[i % colors.length]}">${p.label} ${p.val}</div>`
+    ).join("")}</div>`;
+
+        if ((data.overdue_items || 0) > 0) {
+            $("overdue-area").innerHTML = `<div class="overdue-banner">${data.overdue_items} items are past their SLA deadline!</div>`;
+        } else {
+            $("overdue-area").innerHTML = "";
+        }
+    } finally {
+        setLoading(false);
+    }
+}
+
+/* ---- Pipeline item listing ---- */
+async function loadItems() {
+    setLoading(true, "Loading pipeline items...");
+    const params = new URLSearchParams();
+    if (bdState.stage) params.set("stage", bdState.stage);
+    if (bdState.decision) params.set("decision", bdState.decision);
+    if (bdState.priority) params.set("priority", bdState.priority);
+    params.set("limit", bdState.pageSize);
+    params.set("offset", (bdState.page - 1) * bdState.pageSize);
+
+    const res = await fetch(`/workflow/items?${params}`);
+    try {
+        const items = await res.json();
+        bdState.cachedItems = items;
+
+    const body = $("wf-body");
+    if (!items.length) {
+        body.innerHTML = '<tr><td colspan="10">No items found.</td></tr>';
+        $("wf-page-info").textContent = "Page 1";
+        return;
+    }
+
+    body.innerHTML = items.map((item, idx) => `<tr>
+        <td><a href="${esc(item.url || '#')}" target="_blank" style="font-size:12px">${esc((item.title || "").substring(0, 80))}</a></td>
+        <td>${esc(item.source)}</td>
+        <td>${esc(item.country)}</td>
+        <td>${decisionBadge(item.decision)}</td>
+        <td>${item.score}</td>
+        <td>${priorityBadge(item.priority)}</td>
+        <td style="font-size:11px">${esc(item.stage.replace(/_/g, ' '))}</td>
+        <td style="font-size:12px">${esc(item.assigned_lead)}</td>
+        <td style="font-size:12px">${fmtDate(item.closing_date)}</td>
+        <td><button class="btn-sm detail-btn" data-idx="${idx}">Detail</button></td>
+    </tr>`).join("");
+
+    body.querySelectorAll(".detail-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const idx = parseInt(btn.dataset.idx, 10);
+            const item = bdState.cachedItems[idx];
+            if (item) openDetail(item);
+        });
+    });
+
+        $("wf-page-info").textContent = `Page ${bdState.page}`;
+    } finally {
+        setLoading(false);
+    }
+}
+
+/* ---- Detail panel ---- */
+function openDetail(item) {
+    bdState.selectedTender = item.tender_id;
+    $("detail-panel").classList.remove("hidden");
+    $("detail-title").textContent = item.title || item.tender_id;
+    $("detail-meta").textContent =
+        `Stage: ${(item.stage || '').replace(/_/g, ' ')}  |  Decision: ${item.decision}  |  Score: ${item.score}  |  Priority: ${item.priority}  |  Lead: ${item.assigned_lead}`;
+    $("detail-url").innerHTML = item.url
+        ? `<a href="${esc(item.url)}" target="_blank" rel="noreferrer">Open original tender</a>  |  Source: ${esc(item.source)}  |  Country: ${esc(item.country)}`
+        : "";
+
+    if (item.stage) {
+        $("advance-stage").value = item.stage;
+    }
+
+    loadChecklists(item.tender_id);
+    loadProposals(item.tender_id);
+    loadReviews(item.tender_id);
+    loadTenderPartners(item.tender_id);
+    loadTeam(item.tender_id);
+    loadLifecycle(item.tender_id);
+
+    $("detail-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function loadLifecycle(tid) {
+    const res = await fetch(`/workflow/lifecycle/${tid}`);
+    if (!res.ok) {
+        $("lifecycle-current").textContent = "Lifecycle not available yet.";
+        $("lifecycle-area").innerHTML = "";
+        return;
+    }
+    const data = await res.json();
+    $("lifecycle-current").textContent = data.next_stage
+        ? `Current: ${data.current_stage_label}. Next: ${data.next_stage_label}.`
+        : `Current: ${data.current_stage_label}. This project is at final stage.`;
+    $("lifecycle-area").innerHTML = (data.lifecycle || []).map(s => {
+        const cls = s.state === "current" ? "current" : s.state === "completed" ? "completed" : "";
+        return `<span class="life-chip ${cls}" title="${esc(s.description || '')}">
+            ${esc(s.label)}${s.sla_days ? ` (${s.sla_days}d)` : ""}
+        </span>`;
+    }).join("");
+}
+
+function closeDetail() {
+    $("detail-panel").classList.add("hidden");
+    bdState.selectedTender = null;
+}
+
+/* ---- Checklists ---- */
+async function loadChecklists(tid) {
+    const res = await fetch(`/tenders/${tid}/checklists`);
+    const items = await res.json();
+    if (!items.length) {
+        $("checklist-area").innerHTML = "<p style='font-size:12px;color:#6b7280'>No checklists yet. Advance stage to generate.</p>";
+        return;
+    }
+    const byStage = {};
+    items.forEach(i => { (byStage[i.stage] = byStage[i.stage] || []).push(i); });
+    $("checklist-area").innerHTML = Object.entries(byStage).map(([stage, list]) =>
+        `<div style="margin-bottom:10px">
+            <strong style="font-size:12px;text-transform:capitalize;color:#374151">${stage.replace(/_/g, ' ')}</strong>
+            ${list.map(i => `<div class="checklist-item">
+                <input type="checkbox" ${i.completed ? 'checked' : ''} data-cid="${i.id}">
+                <span style="${i.completed ? 'text-decoration:line-through;color:#9ca3af' : ''}">${esc(i.item_text)}</span>
+                ${i.completed_by ? `<span style="font-size:10px;color:#6b7280">(${esc(i.completed_by)})</span>` : ''}
+            </div>`).join("")}
+        </div>`
+    ).join("");
+
+    $("checklist-area").querySelectorAll("input[data-cid]").forEach(cb => {
+        cb.addEventListener("change", async () => {
+            await fetch(`/checklists/${cb.dataset.cid}/toggle`, { method: "POST" });
+            loadChecklists(tid);
+        });
+    });
+}
+
+/* ---- Proposals ---- */
+async function loadProposals(tid) {
+    const res = await fetch(`/tenders/${tid}/proposals`);
+    const items = await res.json();
+    if (!items.length) {
+        $("proposals-area").innerHTML = "<p style='font-size:12px;color:#6b7280'>No proposals yet.</p>";
+        return;
+    }
+    $("proposals-area").innerHTML = `<table class="wf-table"><thead><tr><th>Type</th><th>Status</th><th>Assigned</th><th>Due</th><th>Submitted</th></tr></thead><tbody>` +
+        items.map(p => `<tr><td>${esc(p.proposal_type)}</td><td>${esc(p.status)}</td><td>${esc(p.assigned_to)}</td><td>${fmtDate(p.due_date)}</td><td>${fmtDate(p.submitted_at)}</td></tr>`).join("") +
+        "</tbody></table>";
+}
+
+/* ---- Quality Reviews ---- */
+async function loadReviews(tid) {
+    const res = await fetch(`/tenders/${tid}/reviews`);
+    const items = await res.json();
+    if (!items.length) {
+        $("reviews-area").innerHTML = "<p style='font-size:12px;color:#6b7280'>No reviews yet. Advance to quality_control stage.</p>";
+        return;
+    }
+    $("reviews-area").innerHTML = `<table class="wf-table"><thead><tr><th>Level</th><th>Reviewer</th><th>Status</th><th>Comments</th><th>Date</th></tr></thead><tbody>` +
+        items.map(r => `<tr><td>L${r.level}</td><td>${esc(r.reviewer)}</td><td>${esc(r.status)}</td><td>${esc(r.comments)}</td><td>${fmtDate(r.reviewed_at)}</td></tr>`).join("") +
+        "</tbody></table>";
+}
+
+/* ---- Partners ---- */
+async function loadTenderPartners(tid) {
+    const res = await fetch(`/tenders/${tid}/partners`);
+    const items = await res.json();
+    if (!items.length) {
+        $("partners-area").innerHTML = "<p style='font-size:12px;color:#6b7280'>No consortium partners assigned yet.</p>";
+        return;
+    }
+    $("partners-area").innerHTML = `<table class="wf-table"><thead><tr><th>Partner</th><th>Type</th><th>Role</th><th>MoU</th><th>Country</th></tr></thead><tbody>` +
+        items.map(p => `<tr><td>${esc(p.partner_name)}</td><td>${esc(p.partner_type)}</td><td>${esc(p.role)}</td><td>${esc(p.mou_status)}</td><td>${esc(p.partner_country)}</td></tr>`).join("") +
+        "</tbody></table>";
+}
+
+/* ---- Team ---- */
+async function loadTeam(tid) {
+    const res = await fetch(`/tenders/${tid}/team`);
+    const items = await res.json();
+    if (!items.length) {
+        $("team-area").innerHTML = "<p style='font-size:12px;color:#6b7280'>No team assigned yet.</p>";
+        return;
+    }
+    $("team-area").innerHTML = `<table class="wf-table"><thead><tr><th>Role</th><th>Person</th><th>Notes</th></tr></thead><tbody>` +
+        items.map(a => `<tr><td>${esc(a.role)}</td><td>${esc(a.person_name)}</td><td>${esc(a.notes)}</td></tr>`).join("") +
+        "</tbody></table>";
+}
+
+/* ---- Event listeners ---- */
+$("run-screening-btn").addEventListener("click", async () => {
+    setLoading(true, "Running scoring workflow...");
+    $("run-screening-btn").disabled = true;
+    $("run-screening-btn").textContent = "Running...";
+    await fetch("/workflow/run?limit=1000&force=false", { method: "POST" });
+    $("run-screening-btn").disabled = false;
+    $("run-screening-btn").textContent = "Run Screening";
+    loadSummary();
+    loadItems();
+    loadSourceCounts();
+    setLoading(false);
+});
+
+$("ingest-all-btn").addEventListener("click", async () => {
+    setLoading(true, "Ingesting all portals...");
+    $("ingest-all-btn").disabled = true;
+    $("ingest-all-btn").textContent = "Ingesting...";
+    await fetch("/ingest-all", { method: "POST" });
+    $("ingest-all-btn").disabled = false;
+    $("ingest-all-btn").textContent = "Ingest All Sources";
+    loadSummary();
+    loadItems();
+    loadSourceCounts();
+    setLoading(false);
+});
+
+$("advance-btn").addEventListener("click", async () => {
+    if (!bdState.selectedTender) return;
+    const stage = $("advance-stage").value;
+    const res = await fetch(`/workflow/advance/${bdState.selectedTender}?stage=${stage}`, { method: "POST" });
+    if (res.ok) {
+        const updated = await res.json();
+        const cached = bdState.cachedItems.find(i => i.tender_id === bdState.selectedTender);
+        if (cached) {
+            cached.stage = updated.stage;
+            cached.assigned_lead = updated.assigned_lead || cached.assigned_lead;
+            openDetail(cached);
+        }
+    }
+    loadSummary();
+    loadItems();
+});
+
+$("filter-decision").addEventListener("change", () => { bdState.decision = $("filter-decision").value; bdState.page = 1; loadItems(); });
+$("filter-priority").addEventListener("change", () => { bdState.priority = $("filter-priority").value; bdState.page = 1; loadItems(); });
+$("wf-prev").addEventListener("click", () => { if (bdState.page > 1) { bdState.page--; loadItems(); } });
+$("wf-next").addEventListener("click", () => { bdState.page++; loadItems(); });
+
+/* ---- Initial load ---- */
+loadSummary();
+loadItems();
+loadSourceCounts();
+</script>
+</body>
+</html>

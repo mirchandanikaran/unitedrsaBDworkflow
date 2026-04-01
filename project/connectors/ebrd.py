@@ -24,7 +24,7 @@ SOURCE = "ebrd"
 BASE_URL = os.getenv("EBRD_URL", "https://www.ebrd.com/home/work-with-us/project-procurement.html")
 REQUEST_TIMEOUT_SECONDS = int(os.getenv("CONNECTOR_TIMEOUT_SECONDS", "20"))
 RETRY_ATTEMPTS = int(os.getenv("CONNECTOR_RETRY_ATTEMPTS", "3"))
-DETAIL_FETCH_LIMIT = int(os.getenv("EBRD_DETAIL_FETCH_LIMIT", "150"))
+DETAIL_FETCH_LIMIT = int(os.getenv("EBRD_DETAIL_FETCH_LIMIT", "0"))
 PLAYWRIGHT_FALLBACK = os.getenv("PLAYWRIGHT_FALLBACK", "true").lower() == "true"
 
 
@@ -50,7 +50,7 @@ def fetch_ebrd_tenders() -> list[dict[str, Any]]:
         html,
         base_url=BASE_URL,
         include_patterns=("procurement", "tender", "notice", "contract", "consultancy", "project"),
-        max_links=int(os.getenv("EBRD_MAX_LINKS", "500")),
+        max_links=int(os.getenv("EBRD_MAX_LINKS", "0")),
     )
 
     rows: list[dict[str, Any]] = []
@@ -59,7 +59,7 @@ def fetch_ebrd_tenders() -> list[dict[str, Any]]:
         description = compact_text(link.get("context") or link["title"])
         published_date, closing_date = extract_dates_from_text(description)
         country = "Global"
-        if enriched_count < DETAIL_FETCH_LIMIT:
+        if DETAIL_FETCH_LIMIT <= 0 or enriched_count < DETAIL_FETCH_LIMIT:
             enrich = fetch_detail_enrichment(
                 url=link["url"],
                 use_playwright_fallback=PLAYWRIGHT_FALLBACK,

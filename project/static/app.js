@@ -25,7 +25,22 @@ const ids = {
   sourceBreakdown: document.getElementById("source-breakdown"),
   tendersBody: document.getElementById("tenders-body"),
   statusLine: document.getElementById("status-line"),
+  loadingOverlay: document.getElementById("loading-overlay"),
+  loadingText: document.getElementById("loading-text"),
 };
+
+let loadingCount = 0;
+function setLoading(isLoading, text = "Refreshing data...") {
+  if (!ids.loadingOverlay) return;
+  if (isLoading) {
+    loadingCount += 1;
+    ids.loadingOverlay.classList.add("show");
+    if (ids.loadingText) ids.loadingText.textContent = text;
+    return;
+  }
+  loadingCount = Math.max(0, loadingCount - 1);
+  if (loadingCount === 0) ids.loadingOverlay.classList.remove("show");
+}
 
 function toQuery(params) {
   const search = new URLSearchParams();
@@ -163,26 +178,31 @@ async function loadSourceBreakdown() {
 async function runIngestion() {
   ids.ingestBtn.disabled = true;
   ids.ingestBtn.textContent = "Running...";
-  ids.statusLine.textContent = "Ingestion in progress...";
+  ids.statusLine.textContent = "Ingesting all sources and refreshing workflow data...";
+  setLoading(true, "Ingesting from all portals...");
   try {
-    const response = await fetch("/ingest", { method: "POST" });
+    const response = await fetch("/ingest-all", { method: "POST" });
     if (!response.ok) throw new Error("Ingestion failed.");
     const result = await response.json();
-    ids.statusLine.textContent = `Ingestion done. Inserted ${result.inserted}, total fetched ${result.total_fetched}.`;
-    await loadData();
+    ids.statusLine.textContent = `Ingestion complete. Inserted ${result.inserted}, updated ${result.updated_existing}, fetched ${result.total_fetched}.`;
+    await Promise.all([loadSourceOptions(), loadData()]);
   } catch (error) {
     ids.statusLine.textContent = String(error);
   } finally {
+    setLoading(false);
     ids.ingestBtn.disabled = false;
-    ids.ingestBtn.textContent = "Run Ingestion";
+    ids.ingestBtn.textContent = "Ingest All Sources";
   }
 }
 
 async function loadData() {
+  setLoading(true, "Refreshing dashboard...");
   try {
     await Promise.all([loadTenders(), loadClosingSoonCount(), loadSourceBreakdown()]);
   } catch (error) {
     ids.statusLine.textContent = String(error);
+  } finally {
+    setLoading(false);
   }
 }
 

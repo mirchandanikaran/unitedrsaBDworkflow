@@ -18,7 +18,7 @@ SOURCE = "ilo"
 RSS_URL = os.getenv("ILO_RSS_URL", "https://webapps.ilo.org/webcommon/php/ungm-rss.php")
 REQUEST_TIMEOUT_SECONDS = int(os.getenv("CONNECTOR_TIMEOUT_SECONDS", "20"))
 RETRY_ATTEMPTS = int(os.getenv("CONNECTOR_RETRY_ATTEMPTS", "3"))
-MAX_ITEMS = int(os.getenv("ILO_MAX_ITEMS", "1000"))
+MAX_ITEMS = int(os.getenv("ILO_MAX_ITEMS", "0"))
 
 
 def _request_feed() -> str:
@@ -46,7 +46,10 @@ def fetch_ilo_tenders() -> list[dict[str, Any]]:
     if channel is None:
         return rows
 
-    for item in channel.findall("item")[:MAX_ITEMS]:
+    items = channel.findall("item")
+    if MAX_ITEMS > 0:
+        items = items[:MAX_ITEMS]
+    for item in items:
         title = compact_text(item.findtext("title", default=""))
         url = compact_text(item.findtext("link", default=""))
         if not title or not url:

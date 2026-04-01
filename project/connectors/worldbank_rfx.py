@@ -29,7 +29,7 @@ BASE_URL = os.getenv(
 REQUEST_TIMEOUT_SECONDS = int(os.getenv("CONNECTOR_TIMEOUT_SECONDS", "20"))
 RETRY_ATTEMPTS = int(os.getenv("CONNECTOR_RETRY_ATTEMPTS", "3"))
 PLAYWRIGHT_FALLBACK = os.getenv("PLAYWRIGHT_FALLBACK", "true").lower() == "true"
-DETAIL_FETCH_LIMIT = int(os.getenv("WORLD_BANK_RFX_DETAIL_FETCH_LIMIT", "200"))
+DETAIL_FETCH_LIMIT = int(os.getenv("WORLD_BANK_RFX_DETAIL_FETCH_LIMIT", "0"))
 
 
 def _request_page() -> str:
@@ -63,7 +63,7 @@ def fetch_world_bank_rfx_tenders() -> list[dict[str, Any]]:
         html,
         base_url=BASE_URL,
         include_patterns=("rfx", "tender", "bid", "procurement", "advertisement", "solicitation"),
-        max_links=int(os.getenv("WORLD_BANK_RFX_MAX_LINKS", "500")),
+        max_links=int(os.getenv("WORLD_BANK_RFX_MAX_LINKS", "0")),
     )
     if not links and PLAYWRIGHT_FALLBACK:
         rendered_html = fetch_rendered_html(BASE_URL)
@@ -71,7 +71,7 @@ def fetch_world_bank_rfx_tenders() -> list[dict[str, Any]]:
             rendered_html,
             base_url=BASE_URL,
             include_patterns=("rfx", "tender", "bid", "procurement", "advertisement", "solicitation"),
-            max_links=int(os.getenv("WORLD_BANK_RFX_MAX_LINKS", "500")),
+            max_links=int(os.getenv("WORLD_BANK_RFX_MAX_LINKS", "0")),
         )
 
     rows: list[dict[str, Any]] = []
@@ -83,7 +83,7 @@ def fetch_world_bank_rfx_tenders() -> list[dict[str, Any]]:
         description = compact_text(link.get("context") or link["title"])
         published_date, closing_date = extract_dates_from_text(description)
         country = "Global"
-        if enriched_count < DETAIL_FETCH_LIMIT:
+        if DETAIL_FETCH_LIMIT <= 0 or enriched_count < DETAIL_FETCH_LIMIT:
             enrich = fetch_detail_enrichment(
                 url=link["url"],
                 use_playwright_fallback=PLAYWRIGHT_FALLBACK,

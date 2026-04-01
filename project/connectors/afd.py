@@ -24,8 +24,8 @@ SOURCE = "afd"
 BASE_URL = os.getenv("AFD_URL", "https://tenders-afd.dgmarket.com/tenders/brandedNoticeList.do")
 REQUEST_TIMEOUT_SECONDS = int(os.getenv("CONNECTOR_TIMEOUT_SECONDS", "20"))
 RETRY_ATTEMPTS = int(os.getenv("CONNECTOR_RETRY_ATTEMPTS", "3"))
-MAX_PAGES = int(os.getenv("AFD_MAX_PAGES", "20"))
-DETAIL_FETCH_LIMIT = int(os.getenv("AFD_DETAIL_FETCH_LIMIT", "200"))
+MAX_PAGES = int(os.getenv("AFD_MAX_PAGES", "0"))
+DETAIL_FETCH_LIMIT = int(os.getenv("AFD_DETAIL_FETCH_LIMIT", "0"))
 PLAYWRIGHT_FALLBACK = os.getenv("PLAYWRIGHT_FALLBACK", "true").lower() == "true"
 
 
@@ -51,13 +51,16 @@ def fetch_afd_tenders(max_pages: int = MAX_PAGES) -> list[dict[str, Any]]:
     seen_ids: set[str] = set()
 
     enriched_count = 0
-    for page in range(1, max_pages + 1):
+    page = 1
+    while True:
+        if max_pages > 0 and page > max_pages:
+            break
         html = _request_page(page=page)
         links = extract_candidate_notice_links(
             html,
             base_url=BASE_URL,
             include_patterns=("tender", "notice", "procurement", "contract", "bid"),
-            max_links=int(os.getenv("AFD_MAX_LINKS_PER_PAGE", "300")),
+            max_links=int(os.getenv("AFD_MAX_LINKS_PER_PAGE", "0")),
         )
         if not links:
             break
@@ -72,7 +75,7 @@ def fetch_afd_tenders(max_pages: int = MAX_PAGES) -> list[dict[str, Any]]:
             description = compact_text(link.get("context") or link["title"])
             published_date, closing_date = extract_dates_from_text(description)
             country = "Global"
-            if enriched_count < DETAIL_FETCH_LIMIT:
+            if DETAIL_FETCH_LIMIT <= 0 or enriched_count < DETAIL_FETCH_LIMIT:
                 enrich = fetch_detail_enrichment(
                     url=link["url"],
                     use_playwright_fallback=PLAYWRIGHT_FALLBACK,
@@ -105,5 +108,6 @@ def fetch_afd_tenders(max_pages: int = MAX_PAGES) -> list[dict[str, Any]]:
             )
         if added_this_page == 0:
             break
+        page += 1
 
     return rows

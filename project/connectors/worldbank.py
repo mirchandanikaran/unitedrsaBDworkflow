@@ -23,7 +23,7 @@ REQUEST_TIMEOUT_SECONDS = int(os.getenv("CONNECTOR_TIMEOUT_SECONDS", "20"))
 RETRY_ATTEMPTS = int(os.getenv("CONNECTOR_RETRY_ATTEMPTS", "3"))
 WORLD_BANK_QUERY = os.getenv("WORLD_BANK_QUERY", "tender OR procurement OR bid")
 WORLD_BANK_PAGE_SIZE = int(os.getenv("WORLD_BANK_PAGE_SIZE", "250"))
-WORLD_BANK_MAX_PAGES = int(os.getenv("WORLD_BANK_MAX_PAGES", "40"))
+WORLD_BANK_MAX_PAGES = int(os.getenv("WORLD_BANK_MAX_PAGES", "0"))
 
 
 def _textify(value: Any) -> str:
@@ -151,7 +151,10 @@ def fetch_world_bank_tenders(
     normalized_rows: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
 
-    for page in range(1, max_pages + 1):
+    page = 1
+    while True:
+        if max_pages > 0 and page > max_pages:
+            break
         try:
             payload = _request_page(page=page, page_size=page_size)
         except RuntimeError as exc:
@@ -180,5 +183,6 @@ def fetch_world_bank_tenders(
 
         if len(page_items) < page_size:
             break
+        page += 1
 
     return normalized_rows

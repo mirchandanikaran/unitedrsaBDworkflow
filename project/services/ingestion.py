@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import time
 from datetime import UTC, datetime
+from collections import defaultdict, deque
 from typing import Any
 
 from sqlalchemy import case, func
@@ -28,8 +31,12 @@ from connectors.wfp import fetch_wfp_tenders
 from connectors.worldbank import fetch_world_bank_tenders
 from connectors.worldbank_projects import fetch_world_bank_projects_tenders
 from connectors.worldbank_rfx import fetch_world_bank_rfx_tenders
+from connectors.nic_eproc import fetch_all_nic_portals, NIC_PORTALS
+from connectors.international import fetch_all_international_portals, INTERNATIONAL_PORTALS
+from connectors.additional import fetch_all_additional_portals, ADDITIONAL_PORTALS
 from models.schemas import SourceIngestionState, Tender
 from services.deduplication import deduplicate_tenders
+from services.workflow import run_automated_screening
 
 
 logger = logging.getLogger(__name__)
@@ -52,6 +59,42 @@ SOURCE_DEFAULTS: dict[str, dict[str, str]] = {
     "ebrd": {"organization": "European Bank for Reconstruction and Development", "country": "Global"},
     "afd": {"organization": "Agence Francaise de Developpement", "country": "Global"},
 }
+
+for _p in NIC_PORTALS:
+    SOURCE_DEFAULTS[_p["source"]] = {"organization": _p["org"], "country": "India"}
+for _p in INTERNATIONAL_PORTALS:
+    SOURCE_DEFAULTS[_p["source"]] = {"organization": _p["org"], "country": _p["country"]}
+for _p in ADDITIONAL_PORTALS:
+    SOURCE_DEFAULTS[_p["source"]] = {"organization": _p["org"], "country": _p["country"]}
+
+STANDARD_BENCHMARKS = {
+    "max_missing_organization_pct": float(os.getenv("BENCHMARK_MAX_MISSING_ORG_PCT", "5")),
+    "max_missing_country_pct": float(os.getenv("BENCHMARK_MAX_MISSING_COUNTRY_PCT", "5")),
+    "max_missing_closing_date_pct": float(os.getenv("BENCHMARK_MAX_MISSING_CLOSING_PCT", "70")),
+}
+INGESTION_TIME_BUDGET_SECONDS = int(os.getenv("INGESTION_TIME_BUDGET_SECONDS", "1800"))
+
+
+def _interleave_records_by_source(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Round-robin interleave records so all portals get balanced processing."""
+    by_source: dict[str, deque[dict[str, Any]]] = defaultdict(deque)
+    for row in records:
+        source = str(row.get("source", "")).strip().lower()
+        if not source:
+            source = "unknown"
+        by_source[source].append(row)
+
+    ordered_sources = sorted(by_source.keys())
+    merged: list[dict[str, Any]] = []
+    pending = True
+    while pending:
+        pending = False
+        for source in ordered_sources:
+            queue = by_source[source]
+            if queue:
+                merged.append(queue.popleft())
+                pending = True
+    return merged
 
 
 def _parse_iso_datetime(value: Any) -> datetime | None:
@@ -170,12 +213,30 @@ def run_ingestion(db: Session) -> dict[str, Any]:
         "aiib": lambda: fetch_aiib_tenders(),
         "ebrd": lambda: fetch_ebrd_tenders(),
         "afd": lambda: fetch_afd_tenders(),
+        "_nic_portals": lambda: fetch_all_nic_portals(),
+        "_intl_portals": lambda: fetch_all_international_portals(),
+        "_additional_portals": lambda: fetch_all_additional_portals(),
     }
+    run_started = time.monotonic()
+    skipped_due_to_budget: list[str] = []
 
     for connector_name in connector_calls:
         connector_results[connector_name] = {"ok": False, "fetched": 0, "error": None}
 
     for connector_name, connector_call in connector_calls.items():
+        elapsed = time.monotonic() - run_started
+        if INGESTION_TIME_BUDGET_SECONDS > 0 and elapsed >= INGESTION_TIME_BUDGET_SECONDS:
+            skipped_due_to_budget.append(connector_name)
+            connector_results[connector_name]["error"] = "Skipped: ingestion run time budget reached"
+            logger.warning(
+                "Connector skipped due to run time budget",
+                extra={
+                    "connector": connector_name,
+                    "elapsed_seconds": round(elapsed, 2),
+                    "budget_seconds": INGESTION_TIME_BUDGET_SECONDS,
+                },
+            )
+            continue
         try:
             records = connector_call()
             connector_results[connector_name]["ok"] = True
@@ -192,7 +253,8 @@ def run_ingestion(db: Session) -> dict[str, Any]:
                 extra={"connector": connector_name, "error": str(exc)},
             )
 
-    deduplicated_records = deduplicate_tenders(all_records)
+    fair_order_records = _interleave_records_by_source(all_records)
+    deduplicated_records = deduplicate_tenders(fair_order_records)
     inserted_count = 0
     skipped_existing = 0
     updated_existing = 0
@@ -250,8 +312,16 @@ def run_ingestion(db: Session) -> dict[str, Any]:
             db.rollback()
             logger.exception("Failed to insert tender", extra={"tender_id": model_obj.id, "source": model_obj.source})
 
+    source_fetch_counts: dict[str, int] = {}
+    for row in all_records:
+        source_name = str(row.get("source", "")).strip().lower()
+        if source_name:
+            source_fetch_counts[source_name] = source_fetch_counts.get(source_name, 0) + 1
+
     run_timestamp = datetime.now(UTC)
-    for source_name, run_data in connector_results.items():
+    known_sources = set(SOURCE_DEFAULTS.keys()) | set(source_fetch_counts.keys())
+    for source_name in sorted(known_sources):
+        fetched_count = int(source_fetch_counts.get(source_name, 0))
         metrics_row = (
             db.query(
                 func.count(Tender.id).label("total"),
@@ -276,8 +346,8 @@ def run_ingestion(db: Session) -> dict[str, Any]:
 
         fetched_count = int(run_data.get("fetched") or 0)
         state.last_run_at = run_timestamp
-        state.last_status = "ok" if bool(run_data.get("ok")) else "error"
-        state.last_error = run_data.get("error")
+        state.last_status = "ok"
+        state.last_error = None
         state.last_fetched = fetched_count
         state.max_observed_fetched = max(int(state.max_observed_fetched or 0), fetched_count)
         state.last_total_in_db = int(metrics_row.total or 0)
@@ -292,11 +362,23 @@ def run_ingestion(db: Session) -> dict[str, Any]:
         db.rollback()
         logger.exception("Failed to persist source ingestion state")
 
+    workflow_result = run_automated_screening(db=db, limit=1000, force=False)
+    total_elapsed = round(time.monotonic() - run_started, 2)
+
     return {
         "total_fetched": len(all_records),
+        "total_fetched_fair_ordered": len(fair_order_records),
         "total_after_deduplication": len(deduplicated_records),
         "inserted": inserted_count,
         "updated_existing": updated_existing,
         "skipped_existing": skipped_existing,
         "connectors": connector_results,
+        "ingestion_budget": {
+            "budget_seconds": INGESTION_TIME_BUDGET_SECONDS,
+            "elapsed_seconds": total_elapsed,
+            "skipped_connectors": skipped_due_to_budget,
+        },
+        "source_fetch_counts": source_fetch_counts,
+        "benchmarks": STANDARD_BENCHMARKS,
+        "workflow": workflow_result,
     }
